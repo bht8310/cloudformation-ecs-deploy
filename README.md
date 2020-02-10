@@ -28,3 +28,8 @@ aws cloudformation create-stack --region ap-northeast-2 --stack-name network --t
 ```shell
 aws cloudformation create-stack --region ap-northeast-2 --stack-name alb --template-body file://./02_alb.yaml
 ```
+
+### ecrの作成
+```shell
+aws cloudformation create-stack --region ap-northeast-2 --stack-name ecr --template-body file://./03_ecr.yaml
+```
