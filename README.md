@@ -23,3 +23,8 @@ VPC,SubnetからFargate、CodeDeployを構築し、CI/CD環境まで整えるサ
 ```shell
 aws cloudformation create-stack --region ap-northeast-2 --stack-name network --template-body file://./01_network.yaml
 ```
+
+### albの作成
+```shell
+aws cloudformation create-stack --region ap-northeast-2 --stack-name alb --template-body file://./02_alb.yaml
+```

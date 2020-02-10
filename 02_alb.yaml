@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Resources:
+  SecurityGroupALB:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Retain
+    Properties:
+      GroupName: SecurityGroupALB
+      GroupDescription: "Security Group For ALB."
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          ToPort: 80
+          FromPort: 80
+          IpProtocol: tcp
+        - CidrIp: 0.0.0.0/0
+          ToPort: 8080
+          FromPort: 8080
+          IpProtocol: tcp
+      VpcId: {'Fn::ImportValue' : !Sub "${Project}vpc"}
+      Tags:
+        - Key: Name
+          Value: !Sub "${Project}-security-group-alb"
+
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DeletionPolicy: Retain
+    Properties: 
+      IpAddressType: ipv4
+      # LoadBalancerAttributes: 
+        # - LoadBalancerAttribute
+      Name: !Sub "${Project}alb"
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref SecurityGroupALB
+      # SubnetMappings: 
+      Subnets: 
+        - {'Fn::ImportValue' : !Sub "${Project}subnet-dmz1"}
+        - {'Fn::ImportValue' : !Sub "${Project}subnet-dmz2"}
+      # Tags: 
+      #   - Tag
+      Type: application
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /robots.txt
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      Matcher: 
+         HttpCode: 200
+      Name: !Sub "${Project}target-group"
+      Port: 80
+      Protocol: HTTP
+      # Tags: 
+        # - Tag
+      TargetGroupAttributes: 
+        - Key: "stickiness.enabled"
+          Value: true
+      # Targets: 
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: {'Fn::ImportValue': !Sub "${Project}vpc"}
+
+  TargetGroup2:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /robots.txt
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 3
+      Matcher: 
+         HttpCode: 200
+      Name: !Sub "${Project}target-group2"
+      Port: 8080
+      Protocol: HTTP
+      # Tags: 
+        # - Tag
+      TargetGroupAttributes: 
+        - Key: "stickiness.enabled"
+          Value: true
+      # Targets: 
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: {'Fn::ImportValue': !Sub "${Project}vpc"}
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: 
+      - ALB
+      - TargetGroup
+      - TargetGroup2
+    Properties: 
+      # Certificates: 
+        # - Certificate
+      DefaultActions: 
+        - #AuthenticateCognitoConfig: AuthenticateCognitoConfig
+          # AuthenticateOidcConfig: AuthenticateOidcConfig
+          # FixedResponseConfig: FixedResponseConfig
+          Order: 1
+          # RedirectConfig: RedirectConfig
+          TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      # SslPolicy: String
+  ALBListener2:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn: 
+      - ALB
+      - TargetGroup
+    Properties: 
+      # Certificates: 
+        # - Certificate
+      DefaultActions: 
+        - #AuthenticateCognitoConfig: AuthenticateCognitoConfig
+          # AuthenticateOidcConfig: AuthenticateOidcConfig
+          # FixedResponseConfig: FixedResponseConfig
+          Order: 1
+          # RedirectConfig: RedirectConfig
+          TargetGroupArn: !Ref TargetGroup2
+          Type: forward
+      LoadBalancerArn: !Ref ALB
+      Port: 8080
+      Protocol: HTTP
+      # SslPolicy: String
+
+Outputs:
+  ALB:
+    Value: !Ref ALB
+    Export: { "Name" : !Sub "${Project}alb" }
+  TargetGroup:
+    Value: !Ref TargetGroup
+    Export: { "Name" : !Sub "${Project}target-group" }
+  TargetGroup2:
+    Value: !Ref TargetGroup2
+    Export: { "Name" : !Sub "${Project}target-group2" }
