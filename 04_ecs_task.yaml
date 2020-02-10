@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Resources:
+  RoleECS:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: Role For ECS Exec Task
+      Policies:
+        -
+          PolicyDocument: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Action": [
+                          "ecr:GetAuthorizationToken",
+                          "ecr:BatchCheckLayerAvailability",
+                          "ecr:GetDownloadUrlForLayer",
+                          "ecr:BatchGetImage",
+                          "logs:CreateLogStream",
+                          "logs:PutLogEvents"
+                      ],
+                      "Resource": "*"
+                    }
+                ]
+              }
+          PolicyName: !Sub "${Project}ecs-task-policy"
+      RoleName: !Sub "${Project}ecs-task-role"
+
+  ECSTaskLog:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Sub "${Project}log-group"
+      RetentionInDays: 30
+
+  ECSTaskWeb:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        -
+          Cpu: 256
+          DisableNetworking: false
+          Image: nginx
+          Interactive: false
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+                awslogs-group: !Sub "${Project}log-group"
+                awslogs-region: AWS::Region
+                awslogs-stream-prefix: web
+          Memory: 512
+          Name: !Sub "${Project}web-container"
+          PortMappings: 
+            - ContainerPort: 80
+              HostPort: 80
+              Protocol: tcp
+          Privileged: false
+          PseudoTerminal: false
+          ReadonlyRootFilesystem: false
+      Cpu: 256
+      ExecutionRoleArn: !GetAtt RoleECS.Arn
+      Family: !Sub "${Project}web-family"
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Tags: 
+        - Key: Name
+          Value: !Sub "${Project}web-service"
+      TaskRoleArn: !GetAtt RoleECS.Arn
+
+  ECSTaskApp:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        -
+          Cpu: 256
+          DisableNetworking: false
+          Image: "php:7-fpm"
+          Interactive: false
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "${Project}log-group"
+              awslogs-region: AWS::Region
+              awslogs-stream-prefix: app
+          Memory: 512
+          Name: !Sub "${Project}app-container"
+          PortMappings: 
+            - ContainerPort: 9000
+              HostPort: 9000
+              Protocol: tcp
+          Privileged: false
+          PseudoTerminal: false
+          ReadonlyRootFilesystem: false
+      Cpu: 256
+      ExecutionRoleArn: !GetAtt RoleECS.Arn
+      Family: !Sub "${Project}app-family"
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Tags: 
+        - Key: Name
+          Value: !Sub "${Project}app-service"
+      TaskRoleArn: !GetAtt RoleECS.Arn
+
+Outputs:
+  ECSTaskWeb:
+    Value: !Ref ECSTaskWeb
+    Export: { "Name" : !Sub "${Project}task-web" }
+  ECSTaskApp:
+    Value: !Ref ECSTaskApp
+    Export: { "Name" : !Sub "${Project}task-app" }
+  RoleECS:
+    Value: !Ref RoleECS
+    Export: { "Name" : !Sub "${Project}ecs-task-role" }

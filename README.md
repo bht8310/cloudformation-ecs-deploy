@@ -33,3 +33,8 @@ aws cloudformation create-stack --region ap-northeast-2 --stack-name alb --templ
 ```shell
 aws cloudformation create-stack --region ap-northeast-2 --stack-name ecr --template-body file://./03_ecr.yaml
 ```
+
+### ecs taskの作成
+```shell
+aws cloudformation create-stack --stack-name ecs-task --region ap-northeast-2 --template-body file://./04_ecs_task.yaml --capabilities CAPABILITY_NAMED_IAM
+```
