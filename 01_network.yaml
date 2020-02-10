@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Mappings:
+  RegionMap:
+    ap-northeast-1:
+      AZ: ['ap-northeast-1a','ap-northeast-1c']
+    ap-northeast-2:
+      AZ: ['ap-northeast-2a','ap-northeast-2c']
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    DeletionPolicy: Retain
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub "${Project}vpc"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DeletionPolicy: Retain
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub "${Project}igw"
+
+  VPCGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    DeletionPolicy: Retain
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    DeletionPolicy: Retain
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${Project}route-table"
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DeletionPolicy: Retain
+    DependsOn: InternetGateway
+    Properties:
+       RouteTableId: !Ref RouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId: !Ref InternetGateway
+
+  SubnetDMZ1:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Retain
+    Properties:
+      AvailabilityZone: !Select [ "0", !FindInMap [RegionMap, !Ref "AWS::Region", "AZ"]]
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.10.1.0/24
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}subnet-dmz1
+      VpcId: !Ref VPC
+
+  SubnetDMZ2:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Retain
+    Properties:
+      AvailabilityZone: !Select [ "1", !FindInMap [RegionMap, !Ref "AWS::Region", "AZ"]]
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.10.2.0/24
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}subnet-dmz2
+      VpcId: !Ref VPC
+
+  SubnetPRV1:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Retain
+    Properties:
+      AvailabilityZone: !Select [ "0", !FindInMap [RegionMap, !Ref "AWS::Region", "AZ"]]
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.10.11.0/24
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}subnet-prv1
+      VpcId: !Ref VPC
+
+  SubnetPRV2:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Retain
+    Properties:
+      AvailabilityZone: !Select [ "1", !FindInMap [RegionMap, !Ref "AWS::Region", "AZ"]]
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.10.12.0/24
+      Tags:
+        - Key: Name
+          Value: !Sub ${Project}subnet-prv2
+      VpcId: !Ref VPC
+
+  SubnetDMZ1RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Retain
+    Properties:
+      SubnetId: !Ref SubnetDMZ1
+      RouteTableId: !Ref RouteTable
+
+  SubnetDMZ2RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Retain
+    Properties:
+      SubnetId: !Ref SubnetDMZ2
+      RouteTableId: !Ref RouteTable
+
+  SubnetPRV1RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Retain
+    Properties:
+      SubnetId: !Ref SubnetPRV1
+      RouteTableId: !Ref RouteTable
+
+  SubnetPRV2RouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Retain
+    Properties:
+      SubnetId: !Ref SubnetPRV2
+      RouteTableId: !Ref RouteTable
+
+Outputs:
+  VPC:
+    Value: !Ref VPC
+    Export: { "Name" : !Sub "${Project}vpc"}
+  RouteTable:
+    Value: !Ref RouteTable
+    Export: { "Name" : !Sub "${Project}route-table" }
+  SubnetDMZ1:
+    Value: !Ref SubnetDMZ1
+    Export: { "Name": !Sub "${Project}subnet-dmz1" }
+  SubnetDMZ2:
+    Value: !Ref SubnetDMZ2
+    Export: { "Name": !Sub "${Project}subnet-dmz2" }
+  SubnetPRV1:
+    Value: !Ref SubnetPRV1
+    Export: { "Name": !Sub "${Project}subnet-prv1" }
+  SubnetPRV2:
+    Value: !Ref SubnetPRV2
+    Export: { "Name": !Sub "${Project}subnet-prv2" }
+
