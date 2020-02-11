@@ -1,0 +1,345 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Resources:
+  RoleECS:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: Role For ECS Exec Task
+      Policies:
+        -
+          PolicyDocument: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Action": [
+                          "ecr:GetAuthorizationToken",
+                          "ecr:BatchCheckLayerAvailability",
+                          "ecr:GetDownloadUrlForLayer",
+                          "ecr:BatchGetImage",
+                          "logs:CreateLogStream",
+                          "logs:PutLogEvents"
+                      ],
+                      "Resource": "*"
+                    }
+                ]
+              }
+          PolicyName: !Sub "${Project}ecs-task-policy"
+      RoleName: !Sub "${Project}ecs-task-role"
+
+  ECSTaskLog:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Sub "${Project}log-group"
+      RetentionInDays: 30
+
+  ECSTaskWeb:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        -
+          Cpu: 256
+          DisableNetworking: false
+          Image: !Sub
+            - "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}:latest"
+            - {"RepositoryName": {'Fn::ImportValue': !Sub "${Project}ecr-web-image"} }
+          Interactive: false
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+                awslogs-group: !Sub "${Project}log-group"
+                awslogs-region: !Sub "${AWS::Region}"
+                awslogs-stream-prefix: web
+          Memory: 512
+          Name: !Sub "${Project}web-container"
+          PortMappings: 
+            - ContainerPort: 80
+              HostPort: 80
+              Protocol: tcp
+          Privileged: false
+          PseudoTerminal: false
+          ReadonlyRootFilesystem: false
+      Cpu: 256
+      ExecutionRoleArn: !GetAtt RoleECS.Arn
+      Family: !Sub "${Project}web-family"
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Tags: 
+        - Key: Name
+          Value: !Sub "${Project}web-service"
+      TaskRoleArn: !GetAtt RoleECS.Arn
+
+  ECSTaskApp:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        -
+          Cpu: 256
+          DisableNetworking: false
+          Image: !Sub
+            - "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}:latest"
+            - {"RepositoryName": {'Fn::ImportValue': !Sub "${Project}ecr-app-image"} }
+          Interactive: false
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "${Project}log-group"
+              awslogs-region: !Sub "${AWS::Region}"
+              awslogs-stream-prefix: app
+          Memory: 512
+          Name: !Sub "${Project}app-container"
+          PortMappings: 
+            - ContainerPort: 9000
+              HostPort: 9000
+              Protocol: tcp
+          Privileged: false
+          PseudoTerminal: false
+          ReadonlyRootFilesystem: false
+      Cpu: 256
+      ExecutionRoleArn: !GetAtt RoleECS.Arn
+      Family: !Sub "${Project}app-family"
+      Memory: 512
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Tags: 
+        - Key: Name
+          Value: !Sub "${Project}app-service"
+      TaskRoleArn: !GetAtt RoleECS.Arn
+
+  PrivateDnsNamespace:
+    Type: "AWS::ServiceDiscovery::PrivateDnsNamespace"
+    Properties:
+      Vpc: {'Fn::ImportValue': !Sub "${Project}vpc"}
+      Name: local.
+
+  ServiceDiscovery:
+    Type: "AWS::ServiceDiscovery::Service"
+    Properties:
+      Name: !Sub "${Project}app"
+      DnsConfig:
+        NamespaceId: !Ref PrivateDnsNamespace
+        DnsRecords:
+          - Type: 'A'
+            TTL: 60
+      HealthCheckCustomConfig:
+        FailureThreshold: 2
+  ServiceDiscoveryWeb:
+    Type: "AWS::ServiceDiscovery::Service"
+    Properties:
+      Name: !Sub "${Project}web"
+      DnsConfig:
+        NamespaceId: !Ref PrivateDnsNamespace
+        DnsRecords:
+          - Type: 'A'
+            TTL: 60
+      HealthCheckCustomConfig:
+        FailureThreshold: 2
+
+  SecurityGroupWeb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Project}sg-web"
+      GroupDescription: "Security Group For Web Server."
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: {'Fn::ImportValue' : !Sub "${Project}sg-alb"}
+          ToPort: 80
+          FromPort: 80
+          IpProtocol: tcp
+      VpcId: {'Fn::ImportValue' : !Sub "${Project}vpc"}
+      Tags:
+        - Key: Name
+          Value: !Sub "${Project}sg-web"
+
+  SecurityGroupApp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Project}sg-app"
+      GroupDescription: "Security Group For App Server."
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref SecurityGroupWeb
+          ToPort: 9000
+          FromPort: 9000
+          IpProtocol: tcp
+      VpcId: {'Fn::ImportValue' : !Sub "${Project}vpc"}
+      Tags:
+        - Key: Name
+          Value: !Sub "${Project}sg-app"
+
+  RoleECSAutoScaling:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs.application-autoscaling.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: Role For ECS Auto Scaling
+      Policies:
+        -
+          PolicyDocument: |
+            {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "ecs:DescribeServices",
+                            "ecs:UpdateService",
+                            "cloudwatch:PutMetricAlarm",
+                            "cloudwatch:DescribeAlarms",
+                            "cloudwatch:DeleteAlarms"
+                        ],
+                        "Resource": [
+                            "*"
+                        ]
+                    }
+                ]
+            }
+          PolicyName: !Sub "${Project}ecs-auto-scaling-policy"
+      RoleName: !Sub "${Project}ecs-auto-scaling-role"
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${Project}ecs-cluster"
+
+  ECSServiceWeb:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      DeploymentController:
+        Type: CODE_DEPLOY
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub "${Project}web-container"
+          ContainerPort: 80
+          TargetGroupArn: {'Fn::ImportValue' : !Sub "${Project}target-group"}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref SecurityGroupWeb
+          Subnets:
+            - {'Fn::ImportValue': !Sub "${Project}subnet-dmz1" }
+            - {'Fn::ImportValue': !Sub "${Project}subnet-dmz2" }
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ServiceDiscoveryWeb.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "${Project}service-web"
+      TaskDefinition: !Ref ECSTaskWeb
+
+  ECSServiceApp:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref SecurityGroupApp
+          Subnets:
+            - {'Fn::ImportValue': !Sub "${Project}subnet-dmz1" }
+            - {'Fn::ImportValue': !Sub "${Project}subnet-dmz2" }
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ServiceDiscovery.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "${Project}service-app"
+      TaskDefinition: !Ref ECSTaskApp
+
+  AutoScalingTargetWeb:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: 1
+      MaxCapacity: 4
+      ResourceId: !Join ['/', [service, !Ref ECSCluster, !GetAtt ECSServiceWeb.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !GetAtt RoleECSAutoScaling.Arn
+
+  AutoScalingTargetApp:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: 1
+      MaxCapacity: 4
+      ResourceId: !Join ['/', [service, !Ref ECSCluster, !GetAtt ECSServiceApp.Name]]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN:  !GetAtt RoleECSAutoScaling.Arn
+
+  AutoScalingPolicyWeb:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join ['', [!GetAtt ECSServiceWeb.Name, AutoScalingPolicy]]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTargetWeb
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+        TargetValue: 30
+
+  AutoScalingPolicyApp:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join ['', [!GetAtt ECSServiceApp.Name, AutoScalingPolicy]]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTargetApp
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 120
+        ScaleOutCooldown: 60
+        TargetValue: 30
+
+#Outputs:
+#  ECSTaskWeb:
+#    Value: !Ref ECSTaskWeb
+#    Export: { "Name" : !Sub "${Project}task-web" }
+#  ECSTaskWebContainer:
+#    Value: !Sub "${Project}web-container"
+#    Export: { "Name" : !Sub "${Project}task-web-container" }
+#  ECSTaskApp:
+#    Value: !Ref ECSTaskApp
+#    Export: { "Name" : !Sub "${Project}task-app" }
+#  ECSTaskAppContainer:
+#    Value: !Sub "${Project}app-container"
+#    Export: { "Name" : !Sub "${Project}task-app-container" }
+#  RoleECS:
+#    Value: !Ref RoleECS
+#    Export: { "Name" : !Sub "${Project}ecs-task-role" }

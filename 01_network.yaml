@@ -18,6 +18,9 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       CidrBlock: 10.10.0.0/16
+      # Service Discoveryの利用で必要なパラメータ
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
       Tags:
         - Key: Name
           Value: !Sub "${Project}vpc"
