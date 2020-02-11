@@ -155,3 +155,5 @@ aws deploy create-deployment-group --application-name {デプロイアプリケ�
 aws cloudformation create-stack --stack-name pipeline --region ap-northeast-2 --template-body file://./09_pipeline.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 
+### Pipelineの実行
+- これでCodeCommitのMasterに変更があると、Pipelineが実行されデプロイまで実行されます。
