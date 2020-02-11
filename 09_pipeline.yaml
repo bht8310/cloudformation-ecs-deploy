@@ -149,3 +149,58 @@ Resources:
               RunOrder: 1
               InputArtifacts:
                 - Name: BuildWebArtifact
+
+  StartPipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Project}start-pipeline-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${Project}start-pipeline-policy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub
+                    - "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}"
+                    - {"Pipeline": !Ref CodePipeline}
+                Effect: Allow
+                Action:
+                  - codepipeline:StartPipelineExecution
+
+  StartPipeline:
+    Type: AWS::Events::Rule
+    DependsOn: StartPipelineRole
+    Properties:
+      Description: !Sub "${Project}start-pipeline."
+      EventPattern:
+        source:
+          - "aws.codecommit"
+        detail-type:
+          - "CodeCommit Repository State Change"
+        resources:
+          - {'Fn::ImportValue':!Sub "${Project}code-arn"}
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - master
+      State: "ENABLED"
+      Name: !Sub "${Project}start-pipeline-rule"
+      Targets:
+        -
+          Arn: !Sub
+            - "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}"
+            - {"Pipeline": !Ref CodePipeline}
+          Id: !Sub "${Project}run-pipeline"
+          RoleArn: !GetAtt StartPipelineRole.Arn
