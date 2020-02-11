@@ -162,3 +162,6 @@ Outputs:
   RoleCodeDeployArn:
     Value: !GetAtt RoleCodeDeploy.Arn
     Export: {"Name": !Sub "${Project}deploy-arn"}
+  DeploymentApplicationWeb:
+    Value: !Ref DeploymentApplicationWeb
+    Export: {"Name": !Sub "${Project}deploy-application-web"}

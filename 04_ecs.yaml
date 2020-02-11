@@ -327,7 +327,16 @@ Resources:
         ScaleOutCooldown: 60
         TargetValue: 30
 
-#Outputs:
+Outputs:
+  ECSCluser:
+    Value: !Ref ECSCluster
+    Export: {"Name": !Sub "${Project}ecs-cluster"}
+  ECSServiceWeb:
+    Value: !GetAtt ECSServiceWeb.Name
+    Export: {"Name": !Sub "${Project}ecs-service-web"}
+  ECSServiceApp:
+    Value: !GetAtt ECSServiceApp.Name
+    Export: {"Name": !Sub "${Project}ecs-service-app"}
 #  ECSTaskWeb:
 #    Value: !Ref ECSTaskWeb
 #    Export: { "Name" : !Sub "${Project}task-web" }

@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Resources:
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Project}pipeline-role"
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${Project}pipeline-policy"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub
+                    - "${ArtifactBucket}/*"
+                    - {ArtifactBucket: {'Fn::ImportValue':!Sub "${Project}artifact-bucket-arn"}}
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codecommit:GetRepository
+                  - codecommit:ListBranches
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:UploadArchive
+                  - codecommit:CancelUploadArchive
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                  - codebuild:StartBuild
+                  - codebuild:StopBuild
+                  - codebuild:BatchGet*
+                  - codebuild:Get*
+                  - codebuild:List*
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - s3:*
+                  - ecs:*
+                  - elasticloadbalancing:*
+                  - autoscaling:*
+                  - iam:PassRole
+  CodePipeline:
+    DependsOn:
+      - CodePipelineServiceRole
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Name: !Sub "${Project}pipeline"
+      ArtifactStore:
+        Type: S3
+        Location: {'Fn::ImportValue':!Sub "${Project}artifact-bucket"}
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              Configuration:
+                RepositoryName: {"Fn::ImportValue": !Sub "${Project}code-name"}
+                BranchName: master
+                PollForSourceChanges: false
+              RunOrder: 1
+              OutputArtifacts:
+                - Name: SourceArtifact
+        - Name: Build
+          Actions:
+            - Name: BuildApp
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: {"Fn::ImportValue": !Sub "${Project}build-app"}
+              RunOrder: 1
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Region: !Sub ${AWS::Region}
+            - Name: BuildWeb
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: {"Fn::ImportValue": !Sub "${Project}build-web"}
+              RunOrder: 1
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildWebArtifact
+              Region: !Sub ${AWS::Region}
+        - Name: DeployApp
+          Actions:
+            - Name: DeployApp
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName: {"Fn::ImportValue":!Sub "${Project}ecs-cluster"}
+                ServiceName: {"Fn::ImportValue":!Sub "${Project}ecs-service-app"}
+                FileName: imagedefinitions.json
+              RunOrder: 1
+              Namespace: IMAGE1_NAME
+              InputArtifacts:
+                - Name: BuildArtifact
+            - Name: DeployWeb
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CodeDeployToECS
+              Configuration:
+                ApplicationName: !Sub "${Project}deploy-application-web"
+                DeploymentGroupName: !Sub "${Project}deploy-group-web"
+                TaskDefinitionTemplateArtifact: SourceArtifact
+                TaskDefinitionTemplatePath: taskdefweb.json
+                AppSpecTemplateArtifact: SourceArtifact
+                AppSpecTemplatePath: appspecweb.yaml
+                Image1ArtifactName: BuildWebArtifact
+                Image1ContainerName: IMAGE1_NAME
+              RunOrder: 1
+              InputArtifacts:
+                - Name: BuildWebArtifact
+                - Name: SourceArtifact

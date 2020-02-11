@@ -156,8 +156,19 @@ Resources:
         Type: CODEPIPELINE
       TimeoutInMinutes: 5
 
-# !Ref "AWS::Region"
-#Outputs:
+Outputs:
+  ArtifactBucket:
+    Value: !Ref ArtifactBucket
+    Export: {"Name":!Sub "${Project}artifact-bucket"}
+  ArtifactBucketArn:
+    Value: !GetAtt ArtifactBucket.Arn
+    Export: {"Name":!Sub "${Project}artifact-bucket-arn"}
+  CodeBuildWeb:
+    Value: !Ref CodeBuildWeb
+    Export: {"Name":!Sub "${Project}build-web"}
+  CodeBuildApp:
+    Value: !Ref CodeBuildApp
+    Export: {"Name":!Sub "${Project}build-app"}
 #  CodeBuildApp:
 #    Value: !Ref CodeBuildApp
 #    Export: { "Name" : "stack-CodeBuildApp" }

@@ -150,3 +150,8 @@ aws deploy create-deployment-group --application-name {デプロイアプリケ�
 }'
 ```
 
+### pipelineの作成
+```shell
+aws cloudformation create-stack --stack-name pipeline --region ap-northeast-2 --template-body file://./09_pipeline.yaml --capabilities CAPABILITY_NAMED_IAM
+```
+
