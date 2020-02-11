@@ -23,7 +23,7 @@ phases:
  
       ## ECS+CodeDeployにどのイメージを使用するか指示するためのファイルを作成
       - printf '{"ImageURI":"%s"}' $IMAGE_REPOSITORY_NAME:$IMAGE_TAG > imageDetail.json
-      - printf '[{"name":"AppContainer","imageUri":"%s"}]' $IMAGE_REPOSITORY_NAME:$IMAGE_TAG > imagedefinitions.json
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$ECS_APP_CONTAINER" $IMAGE_REPOSITORY_NAME:$IMAGE_TAG > imagedefinitions.json
 
       - sed "s/%%AccountID%%/$ACCOUNT_ID/" template_taskdefweb.json | sed "s/%%executionRole%%/$EXECUTION_ROLE/" | sed "s/%%containerName%%/$ECS_WEB_CONTAINER/" | sed "s/%%familyName%%/$ECS_WEB_FAMILY/"  > taskdefweb.json
       - sed "s/%%containerName%%/$ECS_WEB_CONTAINER/" template_appspecweb.yaml > appspecweb.yaml

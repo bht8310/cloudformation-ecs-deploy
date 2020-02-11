@@ -154,6 +154,9 @@ Resources:
           - Name: DOCKERFILE
             Type: PLAINTEXT
             Value: docker-build/app/Dockerfile
+          - Name: ECS_APP_CONTAINER
+            Type: PLAINTEXT
+            Value: {'Fn::ImportValue': !Sub "${Project}ecs-app-container"}
         Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
         PrivilegedMode: true
         Type: LINUX_CONTAINER
