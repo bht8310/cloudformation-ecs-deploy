@@ -82,5 +82,71 @@ aws cloudformation create-stack --stack-name code --region ap-northeast-2 --temp
 
 ### buildの作成
 ```shell
-aws cloudformation create-stack --stack-name deploy --region ap-northeast-2 --template-body file://./07_build.yaml --capabilities CAPABILITY_NAMED_IAM
+aws cloudformation create-stack --stack-name build --region ap-northeast-2 --template-body file://./07_build.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
+
+### deployの作成
+```shell
+aws cloudformation create-stack --stack-name deploy --region ap-northeast-2 --template-body file://./08_deploy.yaml --capabilities CAPABILITY_NAMED_IAM
+```
+
+### deployment groupの作成
+- CloudFormationでFargateのBlue/Green deploy用の設定追加がわからなかったため、cliで追加
+
+```shell
+aws deploy create-deployment-group --application-name {デプロイアプリケーション名} --deployment-group-name {デプロイグループ名} --service-role-arn {deploy.yamlで作成した出力RoleCodeDeployArnの値} --region ap-northeast-2 --cli-input-json '{
+        "loadBalancerInfo": {
+            "targetGroupPairInfoList": [
+                {
+                    "prodTrafficRoute": {
+                        "listenerArns": [
+                            "{ALBのリスナーのARN}"
+                        ]
+                    }, 
+                    "targetGroups": [
+                        {
+                            "name": "{ターゲットグループ名}"
+                        }, 
+                        {
+                            "name": "{ターゲットグループ名2}"
+                        }
+                    ]
+                }
+            ]
+        }, 
+        "blueGreenDeploymentConfiguration": {
+            "terminateBlueInstancesOnDeploymentSuccess": {
+                "action": "TERMINATE", 
+                "terminationWaitTimeInMinutes": 5
+            }, 
+            "deploymentReadyOption": {
+                "actionOnTimeout": "CONTINUE_DEPLOYMENT", 
+                "waitTimeInMinutes": 0
+            }
+        }, 
+        "deploymentConfigName": "CodeDeployDefault.ECSAllAtOnce", 
+        "alarmConfiguration": {
+            "ignorePollAlarmFailure": false, 
+            "alarms": [], 
+            "enabled": false
+        }, 
+        "ecsServices": [
+            {
+                "clusterName": "{ECSのクラスタ名}",
+                "serviceName": "{ECSのWebのサービス名}"
+            }
+        ],
+        "autoRollbackConfiguration": {
+            "enabled": true, 
+            "events": [
+                "DEPLOYMENT_FAILURE"
+            ]
+        }, 
+        "deploymentStyle": {
+            "deploymentType": "BLUE_GREEN", 
+            "deploymentOption": "WITH_TRAFFIC_CONTROL"
+        },
+        "triggerConfigurations": []
+}'
+```
+

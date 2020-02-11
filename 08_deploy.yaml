@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Resources:
+  RoleCodeDeploy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: !Sub "${Project}deploy Role."
+      Policies:
+        -
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:CreateTaskSet
+                  - ecs:UpdateServicePrimaryTaskSet
+                  - ecs:DeleteTaskSet
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeListeners
+                  - elasticloadbalancing:ModifyListener
+                  - elasticloadbalancing:DescribeRules
+                  - elasticloadbalancing:ModifyRule
+                  - lambda:InvokeFunction
+                  - cloudwatch:DescribeAlarms
+                  - sns:Publish
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - iam:PassRole
+                Condition:
+                  StringLike: {"iam:PassedToService":[ "ecs-tasks.amazonaws.com" ]}
+          PolicyName: !Sub "${Project}deploy-policy-for-ecs"
+        -
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - autoscaling:CompleteLifecycleAction
+                  - autoscaling:DeleteLifecycleHook
+                  - autoscaling:DescribeAutoScalingGroups
+                  - autoscaling:DescribeLifecycleHooks
+                  - autoscaling:PutLifecycleHook
+                  - autoscaling:RecordLifecycleActionHeartbeat
+                  - autoscaling:CreateAutoScalingGroup
+                  - autoscaling:UpdateAutoScalingGroup
+                  - autoscaling:EnableMetricsCollection
+                  - autoscaling:DescribeAutoScalingGroups
+                  - autoscaling:DescribePolicies
+                  - autoscaling:DescribeScheduledActions
+                  - autoscaling:DescribeNotificationConfigurations
+                  - autoscaling:DescribeLifecycleHooks
+                  - autoscaling:SuspendProcesses
+                  - autoscaling:ResumeProcesses
+                  - autoscaling:AttachLoadBalancers
+                  - autoscaling:PutScalingPolicy
+                  - autoscaling:PutScheduledUpdateGroupAction
+                  - autoscaling:PutNotificationConfiguration
+                  - autoscaling:PutLifecycleHook
+                  - autoscaling:DescribeScalingActivities
+                  - autoscaling:DeleteAutoScalingGroup
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                  - ec2:TerminateInstances
+                  - tag:GetResources
+                  - sns:Publish
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticloadbalancing:DescribeInstanceHealth
+                  - elasticloadbalancing:RegisterInstancesWithLoadBalancer
+                  - elasticloadbalancing:DeregisterInstancesFromLoadBalancer
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeTargetHealth
+                  - elasticloadbalancing:RegisterTargets
+                  - elasticloadbalancing:DeregisterTargets
+          PolicyName: !Sub "${Project}build-policy"
+        -
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:CreateTaskSet
+                  - ecs:UpdateServicePrimaryTaskSet
+                  - ecs:DeleteTaskSet
+                  - cloudwatch:DescribeAlarms
+              - Effect: Allow
+                Resource:
+                  - arn:aws:sns:*:*:CodeDeployTopic_*
+                Action:
+                  - sns:Publish
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeListeners
+                  - elasticloadbalancing:ModifyListener
+                  - elasticloadbalancing:DescribeRules
+                  - elasticloadbalancing:ModifyRule
+              - Effect: Allow
+                Resource:
+                  - arn:aws:lambda:*:*:function:CodeDeployHook_*
+                Action:
+                  - lambda:InvokeFunction
+              - Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Condition:
+                  StringEquals: {"s3:ExistingObjectTag/UseWithCodeDeploy": true}
+              - Effect: Allow
+                Resource:
+                  - arn:aws:iam::*:role/ecsTaskExecutionRole
+                  - arn:aws:iam::*:role/ECSTaskExecution*
+                Action:
+                  - iam:PassRole
+                Condition:
+                  StringLike: {"iam:PassedToService":[ "ecs-tasks.amazonaws.com" ]}
+
+          PolicyName: !Sub "${Project}build-policy-ecs-task"
+      RoleName: !Sub "${Project}deploy-role"
+
+  DeploymentApplicationWeb:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub "${Project}deploy-web"
+      ComputePlatform: ECS
+
+#TODO
+# DeploymentGroupの作成
+
+Outputs:
+  RoleCodeDeployArn:
+    Value: !GetAtt RoleCodeDeploy.Arn
+    Export: {"Name": !Sub "${Project}deploy-arn"}
