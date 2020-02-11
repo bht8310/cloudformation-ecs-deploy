@@ -110,6 +110,9 @@ Resources:
           - Name: ECS_WEB_FAMILY
             Type: PLAINTEXT
             Value: {'Fn::ImportValue': !Sub "${Project}ecs-web-family"}
+          - Name: ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: !Sub ${AWS::AccountId}
 
         Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
         #Docker buildするでの特権が必要
