@@ -1,0 +1,172 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Mappings:
+  BuildNames:
+    Web:
+      Name: web
+    App:
+      Name: app
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+
+  RoleCodeBuildService:
+    Type: AWS::IAM::Role
+    DependsOn: ArtifactBucket
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: !Sub "${Project}build Role."
+      Policies:
+        -
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource:
+                  - !Sub
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}"
+                    - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "Web", "Name"]}}
+                  - !Sub
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}:*"
+                    - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "Web", "Name"]}}
+                  - !Sub
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}"
+                    - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "App", "Name"]}}
+                  - !Sub
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}:*"
+                    - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "App", "Name"]}}
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::AccountId}-*'
+                  - !Sub
+                    - '${BucketArn}/*'
+                    - {BucketArn: !GetAtt ArtifactBucket.Arn}
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Effect: Allow
+                Resource: "*"
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+          PolicyName: !Sub "${Project}build-policy"
+      RoleName: !Sub "${Project}build-role"
+
+  CodeBuildWeb:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        EncryptionDisabled: true
+        OverrideArtifactName: false
+        Type: CODEPIPELINE
+      BadgeEnabled: false
+      Cache:
+        Location: NO_CACHE
+        Type: NO_CACHE
+      Description: !Sub "${Project}code-build for web."
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: IMAGE_REPOSITORY_NAME
+            Type: PLAINTEXT
+            Value:
+              !Sub
+                - "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
+                - { "ImageName": {'Fn::ImportValue': !Sub "${Project}ecr-web-image"}}
+          - Name: DOCKERFILE
+            Type: PLAINTEXT
+            Value: docker-build/web/Dockerfile
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
+        #Docker buildするでの特権が必要
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      Name:
+       !Sub
+         - "${Project}build-${BuildService}"
+         - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "Web", "Name"]}}
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !GetAtt RoleCodeBuildService.Arn
+      Source:
+        GitCloneDepth: 0
+        InsecureSsl: false
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 5
+
+  CodeBuildApp:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        EncryptionDisabled: true
+        OverrideArtifactName: false
+        Type: CODEPIPELINE
+      BadgeEnabled: false
+      Cache:
+        Location: NO_CACHE
+        Type: NO_CACHE
+      Description: CodeBuild For App.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: IMAGE_REPOSITORY_NAME
+            Type: PLAINTEXT
+            Value:
+              !Sub
+                - "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
+                - { "ImageName": {'Fn::ImportValue': !Sub "${Project}ecr-app-image"}}
+          - Name: DOCKERFILE
+            Type: PLAINTEXT
+            Value: docker-build/app/Dockerfile
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      Name:
+        !Sub
+          - "${Project}build-${BuildService}"
+          - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "App", "Name"]}}
+      QueuedTimeoutInMinutes: 60
+      ServiceRole: !GetAtt RoleCodeBuildService.Arn
+      Source:
+        GitCloneDepth: 0
+        InsecureSsl: false
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 5
+
+# !Ref "AWS::Region"
+#Outputs:
+#  CodeBuildApp:
+#    Value: !Ref CodeBuildApp
+#    Export: { "Name" : "stack-CodeBuildApp" }
+#  CodeBuildAppArn:
+#    Value: !GetAtt CodeBuildApp.Arn
+#    Export: { "Name" : "stack-CodeBuildAppArn" }
+#  CodeBuildWeb:
+#    Value: !Ref CodeBuildWeb
+#    Export: { "Name" : "stack-CodeBuildWeb" }
+#  CodeBuildWebArn:
+#    Value: !GetAtt CodeBuildWeb.Arn
+#    Export: { "Name" : "stack-CodeBuildWebArn" }

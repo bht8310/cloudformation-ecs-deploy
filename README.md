@@ -79,3 +79,8 @@ aws cloudformation create-stack --stack-name ecs-task --region ap-northeast-2 --
 ```shell
 aws cloudformation create-stack --stack-name code --region ap-northeast-2 --template-body file://./06_code.yaml
 ```
+
+### buildの作成
+```shell
+aws cloudformation create-stack --stack-name deploy --region ap-northeast-2 --template-body file://./07_build.yaml --capabilities CAPABILITY_NAMED_IAM
+```
