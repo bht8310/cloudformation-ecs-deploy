@@ -119,6 +119,14 @@ Outputs:
     Value: !Ref ALB
     Export: { "Name" : !Sub "${Project}alb" }
 
+  ALBDNSName:
+    Value: !GetAtt ALB.DNSName
+    Export: { "Name" : !Sub "${Project}alb-dnsname" }
+
+  ALBHostedZone:
+    Value: !GetAtt ALB.CanonicalHostedZoneID
+    Export: { "Name" : !Sub "${Project}alb-hostedzone" }
+
   SecurityGroupAlb:
     Value: !Ref SecurityGroupALB
     Export: { "Name" : !Sub "${Project}sg-alb" }

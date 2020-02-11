@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+  Domain:
+    Type: String
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      HostedZoneConfig:
+        Comment: !Sub "${Project} Hosted Zone."
+      Name: !Sub ${Domain}
+  RecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      AliasTarget:
+        DNSName: {'Fn::ImportValue':!Sub "${Project}alb-dnsname"}
+        EvaluateTargetHealth: false
+        HostedZoneId: {'Fn::ImportValue':!Sub "${Project}alb-hostedzone"}
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub "www.${Domain}"
+      Type: A
