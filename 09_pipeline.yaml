@@ -149,4 +149,3 @@ Resources:
               RunOrder: 1
               InputArtifacts:
                 - Name: BuildWebArtifact
-                - Name: SourceArtifact
