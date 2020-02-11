@@ -38,16 +38,16 @@ Resources:
               - Effect: Allow
                 Resource:
                   - !Sub
-                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}"
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}build-${BuildService}"
                     - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "Web", "Name"]}}
                   - !Sub
-                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}:*"
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}build-${BuildService}:*"
                     - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "Web", "Name"]}}
                   - !Sub
-                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}"
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}build-${BuildService}"
                     - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "App", "Name"]}}
                   - !Sub
-                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}${BuildService}:*"
+                    - "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${Project}build-${BuildService}:*"
                     - { BuildService: { "Fn::FindInMap" : [ "BuildNames", "App", "Name"]}}
                 Action:
                   - logs:CreateLogGroup
