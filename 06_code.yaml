@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Project:
+    Type: String
+    Default: "cfn-test-"
+
+Resources:
+  ECSCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Description CodeCommit Repository
+      RepositoryName: !Sub "${Project}code"
+
+Outputs:
+  ECSCommit:
+    Value: !Ref ECSCommit
+    Export: { "Name" : !Sub "${Project}code" }
+
+  ECSCommitArn:
+    Value: !GetAtt ECSCommit.Arn
+    Export: { "Name" : !Sub "${Project}code-arn" }
+
+  ECSRepositoryName:
+    Value: !GetAtt ECSCommit.Name
+    Export: { "Name" : !Sub "${Project}code-name" }

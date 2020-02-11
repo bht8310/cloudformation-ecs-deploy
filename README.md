@@ -67,3 +67,15 @@ docker push {リポジトリURI}:latest
 ```shell
 aws cloudformation create-stack --stack-name ecs-task --region ap-northeast-2 --template-body file://./04_ecs_task.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
+
+### dns の設定追加
+```shell
+aws cloudformation create-stack --stack-name ecs-task --region ap-northeast-2 --template-body file://./05_dns.yaml --parameters ParameterKey=Domain,ParameterValue={自分で管理しているドメイン}
+```
+- 上記設定後、ドメインのdns serverをAWSに設定が必要です。
+- 設定完了後、www.{ドメイン名}で構築したサーバへアクセスできます。
+
+### code commit の作成
+```shell
+aws cloudformation create-stack --stack-name code --region ap-northeast-2 --template-body file://./06_code.yaml
+```
