@@ -101,6 +101,16 @@ Resources:
           - Name: DOCKERFILE
             Type: PLAINTEXT
             Value: docker-build/web/Dockerfile
+          - Name: EXECUTION_ROLE
+            Type: PLAINTEXT
+            Value: {'Fn::ImportValue': !Sub "${Project}ecs-task-role"}
+          - Name: ECS_WEB_CONTAINER
+            Type: PLAINTEXT
+            Value: {'Fn::ImportValue': !Sub "${Project}ecs-web-container"}
+          - Name: ECS_WEB_FAMILY
+            Type: PLAINTEXT
+            Value: {'Fn::ImportValue': !Sub "${Project}ecs-web-family"}
+
         Image: aws/codebuild/amazonlinux2-x86_64-standard:2.0
         #Docker buildするでの特権が必要
         PrivilegedMode: true

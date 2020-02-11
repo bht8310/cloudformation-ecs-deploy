@@ -138,11 +138,11 @@ Resources:
                 Version: 1
                 Provider: CodeDeployToECS
               Configuration:
-                ApplicationName: !Sub "${Project}deploy-application-web"
+                ApplicationName: {"Fn::ImportValue": !Sub "${Project}deploy-application-web"}
                 DeploymentGroupName: !Sub "${Project}deploy-group-web"
-                TaskDefinitionTemplateArtifact: SourceArtifact
+                TaskDefinitionTemplateArtifact: BuildWebArtifact
                 TaskDefinitionTemplatePath: taskdefweb.json
-                AppSpecTemplateArtifact: SourceArtifact
+                AppSpecTemplateArtifact: BuildWebArtifact
                 AppSpecTemplatePath: appspecweb.yaml
                 Image1ArtifactName: BuildWebArtifact
                 Image1ContainerName: IMAGE1_NAME

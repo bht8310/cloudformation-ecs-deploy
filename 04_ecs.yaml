@@ -331,24 +331,31 @@ Outputs:
   ECSCluser:
     Value: !Ref ECSCluster
     Export: {"Name": !Sub "${Project}ecs-cluster"}
+
   ECSServiceWeb:
     Value: !GetAtt ECSServiceWeb.Name
     Export: {"Name": !Sub "${Project}ecs-service-web"}
+
+  ECSWebFamily:
+    Value: !Sub "${Project}web-family"
+    Export: {"Name": !Sub "${Project}ecs-web-family"}
+
+  ECSWebContainer:
+    Value: !Sub "${Project}web-container"
+    Export: {"Name": !Sub "${Project}ecs-web-container"}
+
   ECSServiceApp:
     Value: !GetAtt ECSServiceApp.Name
     Export: {"Name": !Sub "${Project}ecs-service-app"}
-#  ECSTaskWeb:
-#    Value: !Ref ECSTaskWeb
-#    Export: { "Name" : !Sub "${Project}task-web" }
-#  ECSTaskWebContainer:
-#    Value: !Sub "${Project}web-container"
-#    Export: { "Name" : !Sub "${Project}task-web-container" }
-#  ECSTaskApp:
-#    Value: !Ref ECSTaskApp
-#    Export: { "Name" : !Sub "${Project}task-app" }
-#  ECSTaskAppContainer:
-#    Value: !Sub "${Project}app-container"
-#    Export: { "Name" : !Sub "${Project}task-app-container" }
-#  RoleECS:
-#    Value: !Ref RoleECS
-#    Export: { "Name" : !Sub "${Project}ecs-task-role" }
+
+  ECSAppContainer:
+    Value: !Sub "${Project}app-container"
+    Export: {"Name": !Sub "${Project}ecs-app-container"}
+
+  ECSAppFamily:
+    Value: !Sub "${Project}app-family"
+    Export: {"Name": !Sub "${Project}ecs-app-family"}
+
+  RoleECS:
+    Value: !Ref RoleECS
+    Export: { "Name" : !Sub "${Project}ecs-task-role" }

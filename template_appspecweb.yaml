@@ -5,7 +5,5 @@ Resources:
       Properties:
         TaskDefinition: <TASK_DEFINITION>
         LoadBalancerInfo:
-          ContainerName: "cfn-test-web-container"
+          ContainerName: "%%containerName%%"
           ContainerPort: 80
-
-
